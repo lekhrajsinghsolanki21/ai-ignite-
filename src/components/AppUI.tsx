@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/src/store";
@@ -17,6 +17,7 @@ import {
   updateProgress, 
   completeAnalysis 
 } from "@/src/store/appSlice";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 // --- Navbar Component ---
 export function Navbar() {
@@ -230,13 +231,22 @@ export function ResumeScore() {
         clearInterval(interval);
         const mockResults = resumeFiles.map((file, index) => {
           const ext = file.name.split('.').pop()?.toLowerCase();
-          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
           const isUnsupported = !['pdf', 'docx', 'txt'].includes(ext || '');
+          const isTooSmall = file.size < 1000; // Less than 1KB is suspicious for a resume
           
-          // Mock detection: If it's an image or has a suspicious name, mark as invalid
-          const isInvalid = isImage || isUnsupported || file.name.toLowerCase().includes('image') || file.name.toLowerCase().includes('photo');
+          // Mock detection: If it's an image, unsupported, too small, or has a suspicious name
+          const isInvalid = isImage || isUnsupported || isTooSmall || 
+                           file.name.toLowerCase().includes('image') || 
+                           file.name.toLowerCase().includes('photo') ||
+                           file.name.toLowerCase().includes('screenshot') ||
+                           file.name.toLowerCase().includes('wallpaper');
 
           if (isInvalid) {
+            let errorMsg = "This document format or content does not appear to be a valid resume.";
+            if (isImage) errorMsg = "This file appears to be an image. Resumes must be in PDF, DOCX, or TXT format.";
+            if (isTooSmall) errorMsg = "This file is too small to be a valid resume. Please upload a complete document.";
+            
             return {
               id: `cand-${index}`,
               name: file.name,
@@ -246,7 +256,7 @@ export function ResumeScore() {
               enhancements: [],
               recommendedCourses: [],
               isInvalid: true,
-              errorMessage: isImage ? "This file appears to be an image, not a resume." : "This document format or content does not appear to be a valid resume."
+              errorMessage: errorMsg
             };
           }
 
@@ -456,7 +466,6 @@ export function ResumeScore() {
               );
             })}
           </div>
-
           {selectedCandidate && (
             <motion.div
               key={selectedCandidate.id}
@@ -479,45 +488,107 @@ export function ResumeScore() {
                 </Card>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <Card className="glass rounded-none md:col-span-1 border-primary/20">
-                      <CardHeader className="text-center">
-                        <CardTitle className="uppercase tracking-widest text-sm">ATS Score</CardTitle>
-                        <CardDescription className="text-xs">Candidate: {selectedCandidate.name}</CardDescription>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* ATS Score & Pie Chart Card */}
+                    <Card className="glass rounded-none lg:col-span-2 border-primary/20">
+                      <CardHeader>
+                        <CardTitle className="uppercase tracking-widest text-sm flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-primary" />
+                          Analysis Overview
+                        </CardTitle>
                       </CardHeader>
-                      <CardContent className="flex flex-col items-center justify-center pb-8">
-                        <div className="relative w-32 h-32 flex items-center justify-center">
-                          <svg className="w-full h-full transform -rotate-90">
-                            <circle
-                              cx="64"
-                              cy="64"
-                              r="58"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                              fill="transparent"
-                              className="text-muted/20"
-                            />
-                            <circle
-                              cx="64"
-                              cy="64"
-                              r="58"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                              fill="transparent"
-                              strokeDasharray={364.4}
-                              strokeDashoffset={364.4 - (364.4 * selectedCandidate.atsScore) / 100}
-                              className="text-primary transition-all duration-1000 ease-out"
-                            />
-                          </svg>
-                          <span className="absolute text-4xl font-black tracking-tighter">{selectedCandidate.atsScore}%</span>
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pb-8">
+                        <div className="flex flex-col items-center justify-center border-r border-black/5 dark:border-white/5 pr-0 md:pr-8">
+                          <div className="relative w-40 h-40 flex items-center justify-center mb-4">
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle
+                                cx="80"
+                                cy="80"
+                                r="74"
+                                stroke="currentColor"
+                                strokeWidth="6"
+                                fill="transparent"
+                                className="text-muted/20"
+                              />
+                              <circle
+                                cx="80"
+                                cy="80"
+                                r="74"
+                                stroke="currentColor"
+                                strokeWidth="6"
+                                fill="transparent"
+                                strokeDasharray={464.7}
+                                strokeDashoffset={464.7 - (464.7 * selectedCandidate.atsScore) / 100}
+                                className="text-primary transition-all duration-1000 ease-out"
+                              />
+                            </svg>
+                            <div className="absolute flex flex-col items-center">
+                              <span className="text-5xl font-black tracking-tighter leading-none">{selectedCandidate.atsScore}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATS Score</span>
+                            </div>
+                          </div>
+                          <Badge className="rounded-none bg-primary text-primary-foreground uppercase tracking-widest text-[10px] px-4">
+                            {selectedCandidate.atsScore > 85 ? "Highly Recommended 🥇" : "Strong Match 🥈"}
+                          </Badge>
                         </div>
-                        <Badge className="mt-4 rounded-none bg-primary text-primary-foreground uppercase tracking-widest text-[10px]">
-                          {selectedCandidate.atsScore > 85 ? "Highly Recommended 🥇" : "Strong Match 🥈"}
-                        </Badge>
+
+                        <div className="h-[280px] w-full relative">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-center mb-4 text-primary">Skill Proficiency Breakdown</p>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={selectedCandidate.detailedMatcher.map(d => ({ name: d.category, value: d.matches.length }))}
+                                cx="50%"
+                                cy="45%"
+                                innerRadius={70}
+                                outerRadius={90}
+                                paddingAngle={8}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                {selectedCandidate.detailedMatcher.map((entry, index) => {
+                                  const colors = [
+                                    "hsl(var(--primary))", 
+                                    "hsl(215, 90%, 50%)", 
+                                    "hsl(280, 80%, 60%)"
+                                  ];
+                                  return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} className="hover:opacity-80 transition-opacity cursor-pointer" />;
+                                })}
+                              </Pie>
+                              <Tooltip 
+                                cursor={{ fill: 'transparent' }}
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    return (
+                                      <div className="glass p-3 border border-primary/20 shadow-xl">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">{payload[0].name}</p>
+                                        <p className="text-[10px] font-bold uppercase">{payload[0].value} Matches Found</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Legend 
+                                verticalAlign="bottom" 
+                                height={36}
+                                iconType="square"
+                                wrapperStyle={{ fontSize: '9px', textTransform: 'uppercase', fontWeight: '900', letterSpacing: '0.05em', paddingTop: '20px' }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* Center Label */}
+                          <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                            <span className="block text-2xl font-black leading-none">
+                              {selectedCandidate.detailedMatcher.reduce((acc, curr) => acc + curr.matches.length, 0)}
+                            </span>
+                            <span className="block text-[8px] font-bold uppercase tracking-tighter text-muted-foreground">Total Skills</span>
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="glass rounded-none md:col-span-2">
+                    <Card className="glass rounded-none lg:col-span-1">
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
                           <CheckCircle2 className="text-primary w-5 h-5" />
