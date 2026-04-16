@@ -7,14 +7,23 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "@/src/store";
+import { 
+  setActiveTab, 
+  toggleDarkMode, 
+  setJobDetails, 
+  startAnalysis, 
+  updateProgress, 
+  completeAnalysis 
+} from "@/src/store/appSlice";
 
 // --- Navbar Component ---
-export function Navbar({ activeTab, setActiveTab, isDark, setIsDark }: { 
-  activeTab: string, 
-  setActiveTab: (tab: string) => void,
-  isDark: boolean,
-  setIsDark: (dark: boolean) => void
-}) {
+export function Navbar() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state: RootState) => state.app.activeTab);
+  const isDark = useSelector((state: RootState) => state.app.isDark);
+
   const tabs = [
     { id: 'home', label: 'Home' },
     { id: 'score', label: 'Resume Score' },
@@ -49,7 +58,7 @@ export function Navbar({ activeTab, setActiveTab, isDark, setIsDark }: {
       </div>
 
       <nav className="glass border-b border-black/5 dark:border-white/5 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => dispatch(setActiveTab('home'))}>
           <div className="bg-primary p-1.5 rounded-sm">
             <Zap className="text-primary-foreground w-4 h-4" />
           </div>
@@ -60,7 +69,7 @@ export function Navbar({ activeTab, setActiveTab, isDark, setIsDark }: {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => dispatch(setActiveTab(tab.id))}
               className={cn(
                 "relative px-1 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors hover:text-primary",
                 activeTab === tab.id ? "text-primary" : "text-muted-foreground"
@@ -81,7 +90,7 @@ export function Navbar({ activeTab, setActiveTab, isDark, setIsDark }: {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setIsDark(!isDark)}
+          onClick={() => dispatch(toggleDarkMode())}
           className="rounded-full"
         >
           {isDark ? "🌙" : "☀️"}
@@ -150,34 +159,27 @@ export function Home({ onStart }: { onStart: () => void }) {
 
 // --- Resume Score Page ---
 export function ResumeScore() {
-  const [jobTitle, setJobTitle] = useState("");
-  const [skillsRequired, setSkillsRequired] = useState("");
-  const [location, setLocation] = useState("");
+  const dispatch = useDispatch();
+  const { jobTitle, skillsRequired, location, isAnalyzing, progress, result } = useSelector((state: RootState) => state.app.analysis);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ score: number, matches: string[], missing: string[] } | null>(null);
 
   const handleAnalyze = () => {
     if (!jobTitle || !skillsRequired || !resumeFile) return;
-    setIsAnalyzing(true);
-    setProgress(0);
-    setResult(null);
+    dispatch(startAnalysis());
 
+    let currentProgress = 0;
     const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          setResult({
-            score: 87,
-            matches: ["React.js", "TypeScript", "Node.js", "Tailwind CSS", "UI/UX Design"],
-            missing: ["Docker", "AWS Lambda"]
-          });
-          return 100;
-        }
-        return prev + 5;
-      });
+      currentProgress += 5;
+      dispatch(updateProgress(currentProgress));
+      
+      if (currentProgress >= 100) {
+        clearInterval(interval);
+        dispatch(completeAnalysis({
+          score: 87,
+          matches: ["React.js", "TypeScript", "Node.js", "Tailwind CSS", "UI/UX Design"],
+          missing: ["Docker", "AWS Lambda"]
+        }));
+      }
     }, 100);
   };
 
@@ -208,7 +210,7 @@ export function ResumeScore() {
                 className="w-full bg-background/50 border border-black/10 dark:border-white/10 rounded-none px-3 py-2 focus:ring-1 focus:ring-primary outline-none transition-all text-xs font-medium" 
                 placeholder="e.g. Senior Frontend Engineer"
                 value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
+                onChange={(e) => dispatch(setJobDetails({ jobTitle: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -217,7 +219,7 @@ export function ResumeScore() {
                 className="w-full bg-background/50 border border-black/10 dark:border-white/10 rounded-none px-3 py-2 focus:ring-1 focus:ring-primary outline-none transition-all text-xs font-medium h-20" 
                 placeholder="e.g. React, TypeScript, Tailwind, Node.js"
                 value={skillsRequired}
-                onChange={(e) => setSkillsRequired(e.target.value)}
+                onChange={(e) => dispatch(setJobDetails({ skillsRequired: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -226,7 +228,7 @@ export function ResumeScore() {
                 className="w-full bg-background/50 border border-black/10 dark:border-white/10 rounded-none px-3 py-2 focus:ring-1 focus:ring-primary outline-none transition-all text-xs font-medium" 
                 placeholder="e.g. Remote / New York, NY"
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) => dispatch(setJobDetails({ location: e.target.value }))}
               />
             </div>
           </CardContent>

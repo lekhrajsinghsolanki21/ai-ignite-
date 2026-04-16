@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "./store";
+import { setActiveTab } from "./store/appSlice";
 import { Navbar, Home, ResumeScore, About, Contact, Footer } from "./components/AppUI";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("home");
-  const [isDark, setIsDark] = useState(false);
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state: RootState) => state.app.activeTab);
+  const isDark = useSelector((state: RootState) => state.app.isDark);
 
   // Handle dark mode
   useEffect(() => {
@@ -18,7 +22,7 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case "home":
-        return <Home onStart={() => setActiveTab("score")} />;
+        return <Home onStart={() => dispatch(setActiveTab("score"))} />;
       case "score":
         return <ResumeScore />;
       case "about":
@@ -26,18 +30,13 @@ export default function App() {
       case "contact":
         return <Contact />;
       default:
-        return <Home onStart={() => setActiveTab("score")} />;
+        return <Home onStart={() => dispatch(setActiveTab("score"))} />;
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-primary/30">
-      <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isDark={isDark} 
-        setIsDark={setIsDark} 
-      />
+      <Navbar />
       
       <main className="flex-grow">
         <AnimatePresence mode="wait">
