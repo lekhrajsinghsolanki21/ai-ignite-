@@ -1,11 +1,11 @@
 import { motion } from "motion/react";
-import { FileText, Upload, CheckCircle2, AlertCircle, Search, Trophy, Users, Zap, Mail, Github, Globe, Linkedin } from "lucide-react";
+import { FileText, Upload, CheckCircle2, AlertCircle, Search, Trophy, Users, Zap, Mail, Github, Globe, Linkedin, Sparkles, BookOpen, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/src/store";
@@ -124,9 +124,6 @@ export function Home({ onStart }: { onStart: () => void }) {
           <Button size="lg" className="h-11 px-10 text-[10px] font-bold uppercase tracking-widest rounded-none shadow-none hover:bg-primary/90 transition-all" onClick={onStart}>
             Get Started
           </Button>
-          <Button size="lg" variant="outline" className="h-11 px-10 text-[10px] font-bold uppercase tracking-widest rounded-none glass hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-            View Demo
-          </Button>
         </div>
       </motion.div>
 
@@ -157,15 +154,72 @@ export function Home({ onStart }: { onStart: () => void }) {
 }
 
 
+// --- Confirmation Modal ---
+function ConfirmationModal({ isOpen, onClose, onConfirm, message }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; message: string }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass max-w-sm w-full p-8 rounded-none border border-primary/20 text-center"
+      >
+        <AlertCircle className="w-12 h-12 text-primary mx-auto mb-4" />
+        <h3 className="text-lg font-bold uppercase tracking-widest mb-2">Redirecting</h3>
+        <p className="text-xs font-medium text-muted-foreground mb-8 uppercase tracking-wider leading-relaxed">
+          {message}
+        </p>
+        <div className="flex gap-4">
+          <Button 
+            variant="outline" 
+            className="flex-1 rounded-none uppercase tracking-widest text-[10px] font-bold"
+            onClick={onClose}
+          >
+            No
+          </Button>
+          <Button 
+            className="flex-1 rounded-none uppercase tracking-widest text-[10px] font-bold"
+            onClick={onConfirm}
+          >
+            Yes
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // --- Resume Score Page ---
 export function ResumeScore() {
   const dispatch = useDispatch();
-  const { jobTitle, skillsRequired, location, isAnalyzing, progress, result } = useSelector((state: RootState) => state.app.analysis);
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const { jobTitle, skillsRequired, location, isAnalyzing, progress, results } = useSelector((state: RootState) => state.app.analysis);
+  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingUrl, setPendingUrl] = useState("");
+
+  const handleViewCourse = (url: string) => {
+    setPendingUrl(url);
+    setShowConfirm(true);
+  };
+
+  const confirmRedirect = () => {
+    window.open(pendingUrl, '_blank');
+    setShowConfirm(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files) as File[];
+      setResumeFiles(files);
+    }
+  };
 
   const handleAnalyze = () => {
-    if (!jobTitle || !skillsRequired || !resumeFile) return;
+    if (!jobTitle || !skillsRequired || resumeFiles.length === 0) return;
     dispatch(startAnalysis());
+    setSelectedCandidateId(null);
 
     let currentProgress = 0;
     const interval = setInterval(() => {
@@ -174,14 +228,87 @@ export function ResumeScore() {
       
       if (currentProgress >= 100) {
         clearInterval(interval);
-        dispatch(completeAnalysis({
-          score: 87,
-          matches: ["React.js", "TypeScript", "Node.js", "Tailwind CSS", "UI/UX Design"],
-          missing: ["Docker", "AWS Lambda"]
-        }));
+        const mockResults = resumeFiles.map((file, index) => {
+          const ext = file.name.split('.').pop()?.toLowerCase();
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+          const isUnsupported = !['pdf', 'docx', 'txt'].includes(ext || '');
+          
+          // Mock detection: If it's an image or has a suspicious name, mark as invalid
+          const isInvalid = isImage || isUnsupported || file.name.toLowerCase().includes('image') || file.name.toLowerCase().includes('photo');
+
+          if (isInvalid) {
+            return {
+              id: `cand-${index}`,
+              name: file.name,
+              atsScore: 0,
+              detailedMatcher: [],
+              feedback: "",
+              enhancements: [],
+              recommendedCourses: [],
+              isInvalid: true,
+              errorMessage: isImage ? "This file appears to be an image, not a resume." : "This document format or content does not appear to be a valid resume."
+            };
+          }
+
+          return {
+            id: `cand-${index}`,
+            name: file.name.replace(/\.[^/.]+$/, ""),
+            atsScore: Math.floor(Math.random() * (95 - 65 + 1) + 65),
+            detailedMatcher: [
+              {
+                category: "Technical Skills",
+                matches: ["React.js", "TypeScript", "Tailwind CSS"],
+                missing: ["Docker", "Kubernetes"],
+                score: 85
+              },
+              {
+                category: "Soft Skills",
+                matches: ["Communication", "Teamwork", "Problem Solving"],
+                missing: ["Public Speaking"],
+                score: 90
+              },
+              {
+                category: "Experience",
+                matches: ["3+ Years Frontend", "Agile Methodology"],
+                missing: ["Lead Experience"],
+                score: 75
+              }
+            ],
+            feedback: "Strong technical background with excellent alignment in modern frontend stacks. Needs more exposure to devops tools to reach senior level.",
+            enhancements: [
+              "Add specific metrics to your projects",
+              "Include certifications for AWS or Docker",
+              "Highlight cross-functional collaboration"
+            ],
+            recommendedCourses: [
+              {
+                title: "Advanced TypeScript",
+                platform: "Frontend Masters",
+                duration: "12 Hours",
+                rating: "4.9/5"
+              },
+              {
+                title: "Docker & Kubernetes",
+                platform: "Udemy",
+                duration: "25 Hours",
+                rating: "4.7/5"
+              },
+              {
+                title: "System Design",
+                platform: "DesignGurus",
+                duration: "20 Hours",
+                rating: "4.8/5"
+              }
+            ]
+          };
+        });
+        dispatch(completeAnalysis(mockResults));
+        setSelectedCandidateId(mockResults[0].id);
       }
     }, 100);
   };
+
+  const selectedCandidate = results.find(c => c.id === selectedCandidateId);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
@@ -191,7 +318,7 @@ export function ResumeScore() {
         className="mb-12 text-center"
       >
         <h2 className="text-2xl font-bold uppercase tracking-widest mb-2">Analyze & Rank</h2>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Fill in job details and upload resume to get started.</p>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Fill in job details and upload multiple resumes to compare candidates.</p>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
@@ -234,23 +361,30 @@ export function ResumeScore() {
           </CardContent>
         </Card>
 
-        {/* Resume Upload */}
+        {/* Multiple Resume Upload */}
         <Card className="glass rounded-none border-dashed border-2 border-primary/20 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]">
           <input 
             type="file" 
+            multiple
             className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-            onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+            onChange={handleFileChange}
           />
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-8 w-full">
             <div className="w-16 h-16 rounded-none bg-primary text-primary-foreground flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Upload className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-bold uppercase tracking-widest mb-2">Resume / CV</h3>
-            <p className="text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wider">Drag and drop or click to upload</p>
-            {resumeFile ? (
-              <Badge variant="secondary" className="rounded-none bg-primary text-primary-foreground border-none">
-                {resumeFile.name}
-              </Badge>
+            <h3 className="text-xl font-bold uppercase tracking-widest mb-2">Resumes / CVs</h3>
+            <p className="text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wider">Upload multiple files to compare</p>
+            
+            {resumeFiles.length > 0 ? (
+              <div className="w-full max-w-xs space-y-2 max-h-40 overflow-y-auto px-2">
+                {resumeFiles.map((file, i) => (
+                  <div key={i} className="flex items-center justify-between bg-primary/10 px-3 py-1.5 border border-primary/20">
+                    <span className="text-[10px] font-bold truncate max-w-[150px]">{file.name}</span>
+                    <Badge variant="secondary" className="rounded-none text-[8px] uppercase">{(file.size / 1024).toFixed(0)} KB</Badge>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="flex gap-2">
                 <Badge variant="outline" className="rounded-none text-[10px] uppercase tracking-tighter">PDF</Badge>
@@ -266,10 +400,10 @@ export function ResumeScore() {
         <Button 
           size="lg" 
           className="px-12 rounded-none h-12 text-[10px] font-bold uppercase tracking-widest shadow-none"
-          disabled={!jobTitle || !skillsRequired || !resumeFile || isAnalyzing}
+          disabled={!jobTitle || !skillsRequired || resumeFiles.length === 0 || isAnalyzing}
           onClick={handleAnalyze}
         >
-          {isAnalyzing ? "Analyzing..." : "Calculate Score"}
+          {isAnalyzing ? "Analyzing..." : `Analyze ${resumeFiles.length > 0 ? resumeFiles.length : ''} Resumes`}
         </Button>
       </div>
 
@@ -279,79 +413,221 @@ export function ResumeScore() {
           animate={{ opacity: 1 }} 
           className="max-w-md mx-auto text-center"
         >
-          <p className="mb-4 text-[10px] font-bold uppercase tracking-widest animate-pulse">AI is parsing documents...</p>
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-widest animate-pulse">AI is parsing {resumeFiles.length} documents...</p>
           <Progress value={progress} className="h-1 rounded-none" />
         </motion.div>
       )}
 
-      {result && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
-        >
-          <Card className="glass rounded-none md:col-span-1 border-primary/20">
-            <CardHeader className="text-center">
-              <CardTitle className="uppercase tracking-widest text-sm">Match Score</CardTitle>
-              <CardDescription className="text-xs">Overall suitability</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center pb-8">
-              <div className="relative w-32 h-32 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="58"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="transparent"
-                    className="text-muted/20"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="58"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="transparent"
-                    strokeDasharray={364.4}
-                    strokeDashoffset={364.4 - (364.4 * result.score) / 100}
-                    className="text-primary transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                <span className="absolute text-4xl font-black tracking-tighter">{result.score}%</span>
-              </div>
-              <Badge className="mt-4 rounded-none bg-primary text-primary-foreground uppercase tracking-widest text-[10px]">Highly Recommended 🥇</Badge>
-            </CardContent>
-          </Card>
+      {results.length > 0 && (
+        <div className="space-y-8">
+          {/* Candidate Selector / Ranking */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {resumeFiles.map((candidate) => {
+              const result = results.find(r => r.name === candidate.name.replace(/\.[^/.]+$/, "") || r.name === candidate.name);
+              const isInvalid = result?.isInvalid;
+              
+              return (
+                <Card 
+                  key={candidate.name}
+                  onClick={() => {
+                    const res = results.find(r => r.name === candidate.name.replace(/\.[^/.]+$/, "") || r.name === candidate.name);
+                    if (res) setSelectedCandidateId(res.id);
+                  }}
+                  className={cn(
+                    "glass rounded-none cursor-pointer transition-all border-l-4",
+                    selectedCandidateId === results.find(r => r.name === candidate.name.replace(/\.[^/.]+$/, "") || r.name === candidate.name)?.id 
+                      ? "border-primary bg-primary/5" 
+                      : "border-transparent hover:border-primary/50",
+                    isInvalid && "opacity-70 grayscale"
+                  )}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest truncate">{candidate.name}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium uppercase">
+                        {isInvalid ? "Invalid Document" : `ATS Score: ${result?.atsScore}%`}
+                      </p>
+                    </div>
+                    <div className={cn("font-black text-xl", isInvalid ? "text-destructive" : "text-primary")}>
+                      {isInvalid ? "!" : result?.atsScore}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-          <Card className="glass rounded-none md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
-                <CheckCircle2 className="text-primary w-5 h-5" />
-                Key Matches
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {result.matches.map((skill, i) => (
-                  <Badge key={i} variant="secondary" className="rounded-none px-3 py-1 uppercase tracking-tighter text-[10px]">{skill}</Badge>
-                ))}
-              </div>
-              <Separator className="my-4" />
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="text-muted-foreground w-5 h-5" />
-                <span className="font-bold uppercase tracking-widest text-xs">Missing Skills / Gaps</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {result.missing.map((skill, i) => (
-                  <Badge key={i} variant="outline" className="rounded-none px-3 py-1 border-primary/20 text-muted-foreground uppercase tracking-tighter text-[10px]">{skill}</Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+          {selectedCandidate && (
+            <motion.div
+              key={selectedCandidate.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              {selectedCandidate.isInvalid ? (
+                <Card className="glass rounded-none border-destructive/50 bg-destructive/5 p-12 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <AlertCircle className="w-12 h-12 text-destructive" />
+                    <h3 className="text-xl font-bold uppercase tracking-widest">Not a Resume</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                      {selectedCandidate.errorMessage}
+                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-4">
+                      Please upload a valid PDF, DOCX, or TXT resume file.
+                    </p>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <Card className="glass rounded-none md:col-span-1 border-primary/20">
+                      <CardHeader className="text-center">
+                        <CardTitle className="uppercase tracking-widest text-sm">ATS Score</CardTitle>
+                        <CardDescription className="text-xs">Candidate: {selectedCandidate.name}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex flex-col items-center justify-center pb-8">
+                        <div className="relative w-32 h-32 flex items-center justify-center">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle
+                              cx="64"
+                              cy="64"
+                              r="58"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="transparent"
+                              className="text-muted/20"
+                            />
+                            <circle
+                              cx="64"
+                              cy="64"
+                              r="58"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="transparent"
+                              strokeDasharray={364.4}
+                              strokeDashoffset={364.4 - (364.4 * selectedCandidate.atsScore) / 100}
+                              className="text-primary transition-all duration-1000 ease-out"
+                            />
+                          </svg>
+                          <span className="absolute text-4xl font-black tracking-tighter">{selectedCandidate.atsScore}%</span>
+                        </div>
+                        <Badge className="mt-4 rounded-none bg-primary text-primary-foreground uppercase tracking-widest text-[10px]">
+                          {selectedCandidate.atsScore > 85 ? "Highly Recommended 🥇" : "Strong Match 🥈"}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="glass rounded-none md:col-span-2">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
+                          <CheckCircle2 className="text-primary w-5 h-5" />
+                          Detailed Job Matcher
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {selectedCandidate.detailedMatcher.map((detail, idx) => (
+                          <div key={idx} className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary">{detail.category}</h4>
+                              <span className="text-[10px] font-black">{detail.score}%</span>
+                            </div>
+                            <Progress value={detail.score} className="h-0.5 rounded-none" />
+                            <div className="flex flex-wrap gap-1.5">
+                              {detail.matches.map((m, i) => (
+                                <Badge key={i} variant="secondary" className="rounded-none text-[8px] uppercase px-2 py-0">+{m}</Badge>
+                              ))}
+                              {detail.missing.map((m, i) => (
+                                <Badge key={i} variant="outline" className="rounded-none text-[8px] uppercase px-2 py-0 text-muted-foreground">-{m}</Badge>
+                              ))}
+                            </div>
+                            {idx < selectedCandidate.detailedMatcher.length - 1 && <Separator className="opacity-50" />}
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <Card className="glass rounded-none border-primary/10">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
+                          <MessageSquare className="text-primary w-5 h-5" />
+                          AI Feedback
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs font-medium leading-relaxed text-muted-foreground italic">
+                          "{selectedCandidate.feedback}"
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="glass rounded-none border-primary/10">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
+                          <Sparkles className="text-primary w-5 h-5" />
+                          Enhance Resume
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {selectedCandidate.enhancements.map((tip, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[10px] font-medium">
+                              <div className="mt-1 w-1 h-1 bg-primary shrink-0" />
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="glass rounded-none border-primary/10">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 uppercase tracking-widest text-sm">
+                        <BookOpen className="text-primary w-5 h-5" />
+                        Recommended Courses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {selectedCandidate.recommendedCourses.map((course, i) => (
+                          <div key={i} className="p-4 border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 flex flex-col justify-between">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-tight leading-tight mb-1">{course.title}</p>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[8px] font-medium text-muted-foreground uppercase">{course.platform}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[8px] font-bold text-primary">{course.duration}</span>
+                                  <span className="text-[8px] font-bold text-yellow-500">★ {course.rating}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="link" 
+                              className="p-0 h-auto text-[9px] uppercase tracking-widest mt-3 justify-start"
+                              onClick={() => handleViewCourse('https://internshala.com/')}
+                            >
+                              View Course →
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </motion.div>
+          )}
+        </div>
       )}
+
+      <ConfirmationModal 
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmRedirect}
+        message="We are directed to third party. Do you want to continue?"
+      />
     </div>
   );
 }
@@ -490,9 +766,6 @@ export function Footer() {
             <Github className="w-5 h-5" />
           </Button>
         </div>
-      </div>
-      <div className="text-center mt-8 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-        © 2024 IntelliScreen AI. Built by Hackathon Innovators.
       </div>
     </footer>
   );

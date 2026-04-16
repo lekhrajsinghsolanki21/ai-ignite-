@@ -1,9 +1,29 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface AnalysisResult {
-  score: number;
+interface DetailedMatch {
+  category: string;
   matches: string[];
   missing: string[];
+  score: number;
+}
+
+interface Course {
+  title: string;
+  platform: string;
+  duration: string;
+  rating: string;
+}
+
+interface CandidateResult {
+  id: string;
+  name: string;
+  atsScore: number;
+  detailedMatcher: DetailedMatch[];
+  feedback: string;
+  enhancements: string[];
+  recommendedCourses: Course[];
+  isInvalid?: boolean;
+  errorMessage?: string;
 }
 
 interface AppState {
@@ -15,7 +35,7 @@ interface AppState {
     location: string;
     isAnalyzing: boolean;
     progress: number;
-    result: AnalysisResult | null;
+    results: CandidateResult[];
   };
 }
 
@@ -28,7 +48,7 @@ const initialState: AppState = {
     location: '',
     isAnalyzing: false,
     progress: 0,
-    result: null,
+    results: [],
   },
 };
 
@@ -51,20 +71,20 @@ export const appSlice = createSlice({
     startAnalysis: (state) => {
       state.analysis.isAnalyzing = true;
       state.analysis.progress = 0;
-      state.analysis.result = null;
+      state.analysis.results = [];
     },
     updateProgress: (state, action: PayloadAction<number>) => {
       state.analysis.progress = action.payload;
     },
-    completeAnalysis: (state, action: PayloadAction<AnalysisResult>) => {
+    completeAnalysis: (state, action: PayloadAction<CandidateResult[]>) => {
       state.analysis.isAnalyzing = false;
       state.analysis.progress = 100;
-      state.analysis.result = action.payload;
+      state.analysis.results = action.payload;
     },
     resetAnalysis: (state) => {
       state.analysis.isAnalyzing = false;
       state.analysis.progress = 0;
-      state.analysis.result = null;
+      state.analysis.results = [];
     },
   },
 });
