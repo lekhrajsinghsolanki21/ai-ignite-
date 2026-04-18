@@ -1,13 +1,16 @@
-import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
+"use client"
 
+import * as React from "react"
+import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 import { cn } from "@/lib/utils"
 
+// Root
 function Progress({
   className,
   children,
   value,
   ...props
-}: ProgressPrimitive.Root.Props) {
+}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -23,7 +26,11 @@ function Progress({
   )
 }
 
-function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
+// Track
+function ProgressTrack({
+  className,
+  ...props
+}: React.ComponentProps<typeof ProgressPrimitive.Track>) {
   return (
     <ProgressPrimitive.Track
       className={cn(
@@ -36,10 +43,11 @@ function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
   )
 }
 
+// Indicator
 function ProgressIndicator({
   className,
   ...props
-}: ProgressPrimitive.Indicator.Props) {
+}: React.ComponentProps<typeof ProgressPrimitive.Indicator>) {
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
@@ -49,17 +57,29 @@ function ProgressIndicator({
   )
 }
 
-function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
+// Label
+function ProgressLabel({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof ProgressPrimitive.Label>) {
   return (
     <ProgressPrimitive.Label
       className={cn("text-sm font-medium", className)}
       data-slot="progress-label"
       {...props}
-    />
+    >
+      {children}
+    </ProgressPrimitive.Label>
   )
 }
 
-function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
+// Value
+function ProgressValue({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof ProgressPrimitive.Value>) {
   return (
     <ProgressPrimitive.Value
       className={cn(
@@ -68,7 +88,9 @@ function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
       )}
       data-slot="progress-value"
       {...props}
-    />
+    >
+      {children}
+    </ProgressPrimitive.Value>
   )
 }
 
