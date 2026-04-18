@@ -1,10 +1,13 @@
 "use client"
 
 import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
-function Label({ className, ...props }: React.ComponentProps<"label">) {
+interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  className?: string
+}
+
+function Label({ className, children, ...props }: LabelProps) {
   return (
     <label
       data-slot="label"
@@ -13,7 +16,9 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </label>
   )
 }
 
